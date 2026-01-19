@@ -1,0 +1,128 @@
+services:
+  # 1. Database for Polaris
+  polaris-db:
+    image: postgres:15-alpine
+    container_name: polaris-db
+    # Expose DB to host for debugging if needed
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: polaris
+      POSTGRES_USER: polaris_admin
+      POSTGRES_PASSWORD: polaris_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polaris_admin -d polaris"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - polaris-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # 2. MinIO (S3 Replacement)
+  minio:
+    image: minio/minio:latest
+    container_name: polaris-minio
+    ports:
+      - "9000:9000" # API Access
+      - "9001:9001" # Console Access
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - polaris-minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  # 3. MinIO Setup (Creates 'polaris-bucket')
+  minio-setup:
+    image: minio/mc:latest
+    container_name: polaris-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until curl -s http://minio:9000/minio/health/live; do echo 'Waiting for MinIO...'; sleep 2; done;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/polaris-bucket;
+      exit 0;
+      "
+    restart: "no"
+
+  # 4. Bootstrap Job
+  polaris-bootstrap:
+    image: apache/polaris-admin-tool:1.2.0-incubating
+    container_name: polaris-bootstrap
+    environment:
+      POLARIS_PERSISTENCE_TYPE: "relational-jdbc"
+      QUARKUS_DATASOURCE_DB_KIND: "postgresql"
+      QUARKUS_DATASOURCE_JDBC_URL: "jdbc:postgresql://polaris-db:5432/polaris"
+      QUARKUS_DATASOURCE_USERNAME: "polaris_admin"
+      QUARKUS_DATASOURCE_PASSWORD: "polaris_password"
+    env_file:
+      - .env
+    depends_on:
+      polaris-db:
+        condition: service_healthy
+    command:
+      - bootstrap
+      - --realm=default-realm
+      - --credential=default-realm,${ROOT_CLIENT_ID},${ROOT_CLIENT_SECRET}
+    restart: "no"
+
+  # 5. Polaris Service
+  polaris:
+    image: apache/polaris:1.2.0-incubating
+    container_name: polaris
+    ports:
+      - "8181:8181"
+    env_file:
+      - .env
+    environment:
+      POLARIS_PERSISTENCE_TYPE: "relational-jdbc"
+      QUARKUS_DATASOURCE_DB_KIND: "postgresql"
+      QUARKUS_DATASOURCE_JDBC_URL: "jdbc:postgresql://polaris-db:5432/polaris"
+      QUARKUS_DATASOURCE_USERNAME: "polaris_admin"
+      QUARKUS_DATASOURCE_PASSWORD: "polaris_password"
+      
+      # Realm Config
+      POLARIS_REALM_CONTEXT_REALMS: "default-realm"
+      POLARIS_REALM_CONTEXT_TYPE: "default"
+      
+      # MinIO Configuration
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL_S3: http://minio:9000
+      AWS_ENDPOINT_URL_STS: http://minio:9000
+      AWS_S3_PATH_STYLE_ACCESS: "true" 
+      AWS_REQUEST_CHECKSUM_CALCULATION: "WHEN_REQUIRED"
+      AWS_RESPONSE_CHECKSUM_VALIDATION: "WHEN_REQUIRED"
+      
+      POLARIS_FEATURES_DROP_WITH_PURGE_ENABLED: "true"
+    depends_on:
+      polaris-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      polaris-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8181/api/catalog/v1/config | grep -qE '^(200|401)' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  polaris-db-data:
+    driver: local
+  polaris-minio-data:
+    driver: local
