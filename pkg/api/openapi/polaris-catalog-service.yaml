@@ -4361,6 +4361,7 @@ components:
     namespace:
       name: namespace
       in: path
+      x-go-name: NamespaceString
       required: true
       description: A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
       schema:
@@ -4407,6 +4408,7 @@ components:
     generic-table:
       name: generic-table
       in: path
+      x-go-name: GenericTableName
       description: A generic table name
       required: true
       schema:
