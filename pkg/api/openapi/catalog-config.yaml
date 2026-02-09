@@ -1,0 +1,5 @@
+package: openapi
+generate:
+  - types
+  - client
+output: pkg/api/openapi/catalog.gen.go
