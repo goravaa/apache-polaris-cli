@@ -10,6 +10,7 @@ CODEGEN_VERSION=v2.4.1
 
 .PHONY: generate
 generate:
+	@mkdir -p pkg/api/openapi/catalog pkg/api/openapi/management
 	@echo "Generating Catalog API..."
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(CODEGEN_VERSION) \
 		--config $(CATALOG_CONF) $(CATALOG_SPEC)
@@ -17,3 +18,8 @@ generate:
 	@echo "Generating Management API..."
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(CODEGEN_VERSION) \
 		--config $(MGMT_CONF) $(MGMT_SPEC)
+
+.PHONY: build
+build:
+	@mkdir -p bin
+	go build -o bin/polaris .

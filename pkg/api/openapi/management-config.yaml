@@ -1,5 +1,7 @@
-package: openapi
+package: managementapi
 generate:
-  - types
-  - client
-output: pkg/api/openapi/management.gen.go
+  models: true
+  client: true
+output-options:
+  response-type-suffix: ResponseWrapper
+output: pkg/api/openapi/management/management.gen.go

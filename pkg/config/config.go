@@ -14,8 +14,9 @@ const (
 )
 
 type Config struct {
-	Host  string `json:"host"`
-	Realm string `json:"realm"`
+	Host          string `json:"host"`
+	Realm         string `json:"realm"`
+	CatalogPrefix string `json:"catalog_prefix"`
 }
 
 type Credentials struct {

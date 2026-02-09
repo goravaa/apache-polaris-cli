@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	configHost  string
-	configRealm string
+	configHost          string
+	configRealm         string
+	configCatalogPrefix string
 )
 
 var configCmd = &cobra.Command{
@@ -43,6 +44,7 @@ func init() {
 
 	configSetCmd.Flags().StringVar(&configHost, "host", "", "Polaris server URL (e.g., http://localhost:8181)")
 	configSetCmd.Flags().StringVar(&configRealm, "realm", "", "Polaris realm (for multi-tenant setups)")
+	configSetCmd.Flags().StringVar(&configCatalogPrefix, "catalog-prefix", "", "Default catalog prefix for catalog API calls")
 }
 
 func runConfigSet(cmd *cobra.Command, args []string) error {
@@ -57,6 +59,9 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	if cmd.Flags().Changed("realm") {
 		cfg.Realm = configRealm
 	}
+	if cmd.Flags().Changed("catalog-prefix") {
+		cfg.CatalogPrefix = configCatalogPrefix
+	}
 
 	if cfg.Host == "" {
 		return fmt.Errorf("host is required. Use --host to set the Polaris server URL")
@@ -70,6 +75,9 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Host: %s\n", cfg.Host)
 	if cfg.Realm != "" {
 		fmt.Printf("  Realm: %s\n", cfg.Realm)
+	}
+	if cfg.CatalogPrefix != "" {
+		fmt.Printf("  Catalog Prefix: %s\n", cfg.CatalogPrefix)
 	}
 
 	return nil
@@ -87,6 +95,11 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Realm: %s\n", cfg.Realm)
 	} else {
 		fmt.Println("  Realm: (not set)")
+	}
+	if cfg.CatalogPrefix != "" {
+		fmt.Printf("  Catalog Prefix: %s\n", cfg.CatalogPrefix)
+	} else {
+		fmt.Println("  Catalog Prefix: (not set)")
 	}
 
 	return nil
