@@ -13,16 +13,16 @@ Files: `cmd/catalogs.go`
 - [ ] Update (`catalogs update`) - `UpdateCatalog`
 
 ### Catalog Roles
-Files: `cmd/catalog_roles.go` (Proposed)
-- [ ] List - `ListCatalogRoles`
-- [ ] Create - `CreateCatalogRole`
-- [ ] Delete - `DeleteCatalogRole`
-- [ ] Describe - `GetCatalogRole`
-- [ ] Update - `UpdateCatalogRole`
-- [ ] List Grants - `ListGrantsForCatalogRole`
-- [ ] Revoke Grant - `RevokeGrantFromCatalogRole`
-- [ ] Add Grant - `AddGrantToCatalogRole`
-- [ ] List Assignee Principal Roles - `ListAssigneePrincipalRolesForCatalogRole`
+Files: `cmd/catalog_roles.go`
+- [x] List - `ListCatalogRoles`
+- [x] Create - `CreateCatalogRole`
+- [x] Delete - `DeleteCatalogRole`
+- [x] Describe - `GetCatalogRole`
+- [x] Update - `UpdateCatalogRole`
+- [x] List Grants - `ListGrantsForCatalogRole`
+- [x] Revoke Grant - `RevokeGrantFromCatalogRole`
+- [x] Add Grant - `AddGrantToCatalogRole`
+- [x] List Assignee Principal Roles - `ListAssigneePrincipalRolesForCatalogRole`
 
 ### Principals
 Files: `cmd/principals.go` (Proposed)
