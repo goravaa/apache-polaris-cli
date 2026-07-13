@@ -111,6 +111,12 @@ func (c *AuthClient) RefreshToken(currentToken string) (*config.Credentials, err
 	formData.Set("subject_token", currentToken)
 	formData.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
 
+	existingCreds, _ := config.LoadCredentials()
+	if existingCreds != nil && existingCreds.ClientID != "" && existingCreds.ClientSecret != "" {
+		formData.Set("client_id", existingCreds.ClientID)
+		formData.Set("client_secret", existingCreds.ClientSecret)
+	}
+
 	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -148,8 +154,6 @@ func (c *AuthClient) RefreshToken(currentToken string) (*config.Credentials, err
 	if tokenResp.AccessToken == "" {
 		return nil, fmt.Errorf("received empty access token from server")
 	}
-
-	existingCreds, _ := config.LoadCredentials()
 
 	credentials := &config.Credentials{
 		AccessToken: tokenResp.AccessToken,

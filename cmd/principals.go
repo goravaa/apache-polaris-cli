@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"context"
+	"strings"
+	"io"
+	"net/http"
 	"encoding/json"
 	"fmt"
 
@@ -314,7 +317,15 @@ func runPrincipalsRotateCredentials(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	resp, err := client.RotateCredentialsWithResponse(context.Background(), principalName)
+	// Pass an empty body {} for the POST request since Polaris servers often require a JSON Content-Type and {} body for this to not fail with 400 or 403.
+	// However, the generated RotateCredentialsWithResponse does not accept a body argument.
+	// Let's use the RequestEditorFn to force an empty body and content type.
+	resp, err := client.RotateCredentialsWithResponse(context.Background(), principalName, func(ctx context.Context, req *http.Request) error {
+		req.Body = io.NopCloser(strings.NewReader("{}"))
+		req.ContentLength = 2
+		req.Header.Set("Content-Type", "application/json")
+		return nil
+	})
 	if err != nil {
 		return err
 	}

@@ -36,7 +36,7 @@ func newCatalogClient() (*catalogapi.ClientWithResponses, *config.Config, error)
 		return nil, nil, err
 	}
 
-	baseURL := strings.TrimSuffix(cfg.Host, "/") + "/api/catalog"
+	baseURL := strings.TrimSuffix(cfg.Host, "/") + "/api/catalog/v1"
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 
 	client, err := catalogapi.NewClientWithResponses(
