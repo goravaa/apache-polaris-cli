@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -122,20 +124,27 @@ func runCatalogsCreate(cmd *cobra.Command, args []string) error {
 		catalogProps.AdditionalProperties = props
 	}
 
-	storage := managementapi.StorageConfigInfo{
-		StorageType: storageType,
+	storageMap := map[string]interface{}{
+		"storageType": string(storageType),
 	}
 	if len(catalogAllowedLocations) > 0 {
-		storage.AllowedLocations = &catalogAllowedLocations
+		storageMap["allowedLocations"] = catalogAllowedLocations
 	}
 
-	req := managementapi.CreateCatalogRequest{
-		Catalog: managementapi.Catalog{
-			Name:              catalogName,
-			Type:              typ,
-			Properties:        catalogProps,
-			StorageConfigInfo: storage,
-		},
+	// Add required fields for some storage types to avoid 400 Bad Request
+	if storageType == managementapi.AZURE {
+		storageMap["tenantId"] = "default-tenant" // Required by Azure
+	}
+
+	catalogMap := map[string]interface{}{
+		"name": catalogName,
+		"type": string(typ),
+		"properties": catalogProps,
+		"storageConfigInfo": storageMap,
+	}
+
+	reqBody := map[string]interface{}{
+		"catalog": catalogMap,
 	}
 
 	client, _, err := newManagementClient()
@@ -143,7 +152,12 @@ func runCatalogsCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	resp, err := client.CreateCatalogWithResponse(context.Background(), req)
+	reqBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.CreateCatalogWithBodyWithResponse(context.Background(), "application/json", bytes.NewReader(reqBytes))
 	if err != nil {
 		return err
 	}
