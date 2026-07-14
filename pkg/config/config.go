@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -14,9 +15,142 @@ const (
 )
 
 type Config struct {
-	Host          string `json:"host"`
-	Realm         string `json:"realm"`
-	CatalogPrefix string `json:"catalog_prefix"`
+	Host             string `json:"host"`
+	Realm            string `json:"realm"`
+	CatalogPrefix    string `json:"catalog_prefix"`
+	RootClientID     string `json:"root_client_id,omitempty"`
+	RootClientSecret string `json:"root_client_secret,omitempty"`
+}
+
+func ApplyConfigValues(config *Config, values map[string]string) error {
+	for key, value := range values {
+		switch normalizeConfigKey(key) {
+		case "host", "url", "server", "address", "serverurl", "serveraddress", "polarisserver", "polarisserverurl", "polarisserveraddress":
+			config.Host = value
+		case "realm", "polarisrealm":
+			config.Realm = value
+		case "catalogprefix", "prefix":
+			config.CatalogPrefix = value
+		case "rootclientid", "clientid":
+			config.RootClientID = value
+		case "rootclientsecret", "clientsecret", "secret":
+			config.RootClientSecret = value
+		}
+	}
+	return nil
+}
+
+func ParseConfigValues(data []byte) (map[string]string, error) {
+	values, err := parseJSONConfigValues(data)
+	if err == nil {
+		return values, nil
+	}
+
+	values, yamlErr := parseYAMLConfigValues(data)
+	if yamlErr == nil {
+		return values, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse config as JSON (%v) or YAML (%v)", err, yamlErr)
+}
+
+func parseJSONConfigValues(data []byte) (map[string]string, error) {
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	values := map[string]string{}
+	flattenConfigValues("", raw, values)
+	return values, nil
+}
+
+func flattenConfigValues(prefix string, raw map[string]any, values map[string]string) {
+	for key, value := range raw {
+		nextKey := key
+		if prefix != "" {
+			nextKey = prefix + "_" + key
+		}
+
+		switch typed := value.(type) {
+		case map[string]any:
+			flattenConfigValues(nextKey, typed, values)
+		case string:
+			values[nextKey] = typed
+		case nil:
+			values[nextKey] = ""
+		default:
+			values[nextKey] = fmt.Sprint(typed)
+		}
+	}
+}
+
+func parseYAMLConfigValues(data []byte) (map[string]string, error) {
+	values := map[string]string{}
+	lines := strings.Split(string(data), "\n")
+	for lineNumber, line := range lines {
+		line = stripYAMLComment(line)
+		if strings.TrimSpace(line) == "" || strings.TrimSpace(line) == "---" {
+			continue
+		}
+		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+			return nil, fmt.Errorf("line %d: nested YAML is not supported", lineNumber+1)
+		}
+
+		key, value, ok := strings.Cut(line, ":")
+		if !ok {
+			return nil, fmt.Errorf("line %d: expected key: value", lineNumber+1)
+		}
+
+		key = strings.TrimSpace(key)
+		if key == "" {
+			return nil, fmt.Errorf("line %d: key is required", lineNumber+1)
+		}
+		values[key] = unquoteYAMLValue(strings.TrimSpace(value))
+	}
+
+	if len(values) == 0 {
+		return nil, fmt.Errorf("no config values found")
+	}
+	return values, nil
+}
+
+func stripYAMLComment(line string) string {
+	inSingleQuote := false
+	inDoubleQuote := false
+
+	for i, r := range line {
+		switch r {
+		case '\'':
+			if !inDoubleQuote {
+				inSingleQuote = !inSingleQuote
+			}
+		case '"':
+			if !inSingleQuote {
+				inDoubleQuote = !inDoubleQuote
+			}
+		case '#':
+			if !inSingleQuote && !inDoubleQuote {
+				return line[:i]
+			}
+		}
+	}
+	return line
+}
+
+func unquoteYAMLValue(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) < 2 {
+		return value
+	}
+	if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
+		return value[1 : len(value)-1]
+	}
+	return value
+}
+
+func normalizeConfigKey(key string) string {
+	replacer := strings.NewReplacer("_", "", "-", "", " ", "", ".", "")
+	return strings.ToLower(replacer.Replace(key))
 }
 
 type Credentials struct {

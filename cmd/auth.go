@@ -16,6 +16,7 @@ import (
 var (
 	clientID     string
 	clientSecret string
+	loginRealm   string
 )
 
 var authCmd = &cobra.Command{
@@ -31,12 +32,13 @@ var loginCmd = &cobra.Command{
 
 You can provide credentials via flags:
   polaris auth login --client-id <id> --client-secret <secret>
+  polaris auth login --realm <realm> --client-id <id> --client-secret <secret>
 
 Or you can run interactively (will prompt for credentials):
   polaris auth login
 
 Environment variables are also supported:
-  POLARIS_CLIENT_ID and POLARIS_CLIENT_SECRET`,
+  POLARIS_CLIENT_ID, POLARIS_CLIENT_SECRET, and POLARIS_REALM`,
 	RunE: runLogin,
 }
 
@@ -70,6 +72,7 @@ func init() {
 
 	loginCmd.Flags().StringVar(&clientID, "client-id", "", "OAuth client ID")
 	loginCmd.Flags().StringVar(&clientSecret, "client-secret", "", "OAuth client secret")
+	loginCmd.Flags().StringVar(&loginRealm, "realm", "", "Polaris realm to authenticate against")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
@@ -82,9 +85,23 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Polaris host not configured. Run 'polaris config set --host <url>' first")
 	}
 
+	realm := loginRealm
+	if realm == "" {
+		realm = os.Getenv("POLARIS_REALM")
+	}
+	if realm != "" {
+		cfg.Realm = realm
+	}
+
 	id := clientID
 	if id == "" {
 		id = os.Getenv("POLARIS_CLIENT_ID")
+	}
+	if id == "" {
+		id = os.Getenv("POLARIS_ROOT_CLIENT_ID")
+	}
+	if id == "" {
+		id = cfg.RootClientID
 	}
 	if id == "" {
 		fmt.Print("Client ID: ")
@@ -105,6 +122,12 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		secret = os.Getenv("POLARIS_CLIENT_SECRET")
 	}
 	if secret == "" {
+		secret = os.Getenv("POLARIS_ROOT_CLIENT_SECRET")
+	}
+	if secret == "" {
+		secret = cfg.RootClientSecret
+	}
+	if secret == "" {
 		fmt.Print("Client Secret: ")
 		secretBytes, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
@@ -118,7 +141,11 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("client secret is required")
 	}
 
-	fmt.Printf("Authenticating with %s...\n", cfg.Host)
+	if cfg.Realm != "" {
+		fmt.Printf("Authenticating with %s (realm: %s)...\n", cfg.Host, cfg.Realm)
+	} else {
+		fmt.Printf("Authenticating with %s...\n", cfg.Host)
+	}
 	authClient := api.NewAuthClient(cfg)
 	credentials, err := authClient.Login(id, secret)
 	if err != nil {
@@ -128,8 +155,16 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	if err := config.SaveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
+	if cmd.Flags().Changed("realm") || os.Getenv("POLARIS_REALM") != "" {
+		if err := config.SaveConfig(cfg); err != nil {
+			return fmt.Errorf("failed to save selected realm: %w", err)
+		}
+	}
 
 	fmt.Println("✓ Successfully authenticated!")
+	if cfg.Realm != "" {
+		fmt.Printf("  Realm: %s\n", cfg.Realm)
+	}
 	if credentials.ExpiresIn > 0 {
 		fmt.Printf("  Token expires in: %d seconds\n", credentials.ExpiresIn)
 	}
@@ -164,6 +199,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Host: %s\n", cfg.Host)
 	if cfg.Realm != "" {
 		fmt.Printf("Realm: %s\n", cfg.Realm)
+	}
+	if cfg.RootClientID != "" {
+		fmt.Printf("Default Root Client ID: %s\n", cfg.RootClientID)
 	}
 
 	creds, err := config.LoadCredentials()
