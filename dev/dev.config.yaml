@@ -1,0 +1,4 @@
+server_address: http://localhost:8181
+realm: default-realm
+root_client_id: root
+root_client_secret: secret
