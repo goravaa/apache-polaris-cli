@@ -110,6 +110,7 @@ func (c *AuthClient) RefreshToken(currentToken string) (*config.Credentials, err
 	formData.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
 	formData.Set("subject_token", currentToken)
 	formData.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
+	formData.Set("scope", DefaultScope)
 
 	existingCreds, _ := config.LoadCredentials()
 	if existingCreds != nil && existingCreds.ClientID != "" && existingCreds.ClientSecret != "" {
