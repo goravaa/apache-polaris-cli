@@ -137,9 +137,9 @@ func runCatalogsCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	catalogMap := map[string]interface{}{
-		"name": catalogName,
-		"type": string(typ),
-		"properties": catalogProps,
+		"name":              catalogName,
+		"type":              string(typ),
+		"properties":        catalogProps,
 		"storageConfigInfo": storageMap,
 	}
 
