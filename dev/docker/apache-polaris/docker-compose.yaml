@@ -70,10 +70,26 @@ services:
     depends_on:
       polaris-db:
         condition: service_healthy
-    command:
-      - bootstrap
-      - --realm=default-realm
-      - --credential=default-realm,${ROOT_CLIENT_ID},${ROOT_CLIENT_SECRET}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        output_file="$$(mktemp)"
+        if java -jar /deployments/polaris-admin-tool.jar \
+          bootstrap \
+          --realm=default-realm \
+          --credential=default-realm,${ROOT_CLIENT_ID},${ROOT_CLIENT_SECRET} \
+          > "$$output_file" 2>&1; then
+          cat "$$output_file"
+          exit 0
+        fi
+        status="$$?"
+        if grep -q "already been bootstrapped" "$$output_file"; then
+          echo "Polaris metastore is already bootstrapped; continuing."
+          exit 0
+        fi
+        cat "$$output_file"
+        exit "$$status"
     restart: "no"
 
   # 5. Polaris Service
