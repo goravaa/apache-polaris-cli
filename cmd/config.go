@@ -147,6 +147,7 @@ func readConfigValuesFromArg(arg string) (map[string]string, error) {
 		return readConfigValuesFromFile(arg)
 	}
 
+	arg = expandEscapedNewlines(arg)
 	if looksLikeInlineConfig(arg) {
 		return parseConfigValues([]byte(arg))
 	}
@@ -182,6 +183,19 @@ func looksLikeInlineConfig(input string) bool {
 		}
 	}
 	return false
+}
+
+func expandEscapedNewlines(input string) string {
+	if !strings.Contains(input, `\n`) && !strings.Contains(input, `\r`) {
+		return input
+	}
+
+	replacer := strings.NewReplacer(
+		`\r\n`, "\n",
+		`\n`, "\n",
+		`\r`, "\n",
+	)
+	return replacer.Replace(input)
 }
 
 func runConfigShow(cmd *cobra.Command, args []string) error {

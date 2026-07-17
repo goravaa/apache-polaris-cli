@@ -12,7 +12,7 @@ var tableNamespace string
 
 var catalogTablesCmd = &cobra.Command{
 	Use:   "tables",
-	Short: "Table operations",
+	Short: "Table operations (--namespace is required for list)",
 }
 
 var catalogTablesListCmd = &cobra.Command{
