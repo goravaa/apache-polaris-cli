@@ -4,6 +4,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -155,6 +156,16 @@ func TestCLIIntegration(t *testing.T) {
 		out, err := runCLI(t, tmpDir, "principals", "create", "--name", principalName)
 		require.NoError(t, err)
 
+		var created struct {
+			Credentials struct {
+				ClientID     string `json:"clientId"`
+				ClientSecret string `json:"clientSecret"`
+			} `json:"credentials"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(out), &created))
+		require.NotEmpty(t, created.Credentials.ClientID)
+		require.NotEmpty(t, created.Credentials.ClientSecret)
+
 		// Describe
 		out, err = runCLI(t, tmpDir, "principals", "describe", "--name", principalName)
 		require.NoError(t, err)
@@ -165,13 +176,21 @@ func TestCLIIntegration(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, out, "Updated principal")
 
-		// Rotate Credentials
-		out, err = runCLI(t, tmpDir, "principals", "rotate-credentials", "--name", principalName)
+		// Rotate Credentials must be done as the principal itself (root gets 403).
+		principalHome := t.TempDir()
+		_, err = runCLI(t, principalHome, "config", "set", "--host", host)
+		require.NoError(t, err)
+		_, err = runCLI(t, principalHome, "auth", "login",
+			"--client-id", created.Credentials.ClientID,
+			"--client-secret", created.Credentials.ClientSecret,
+		)
+		require.NoError(t, err)
+		out, err = runCLI(t, principalHome, "principals", "rotate-credentials", "--name", principalName)
 		require.NoError(t, err)
 		assert.Contains(t, out, "clientId")
 		assert.Contains(t, out, "clientSecret")
 
-		// Reset Credentials
+		// Reset Credentials (admin operation)
 		out, err = runCLI(t, tmpDir, "principals", "reset-credentials", "--name", principalName)
 		require.NoError(t, err)
 		assert.Contains(t, out, "clientId")
