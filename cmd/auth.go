@@ -34,11 +34,21 @@ You can provide credentials via flags:
   polaris auth login --client-id <id> --client-secret <secret>
   polaris auth login --realm <realm> --client-id <id> --client-secret <secret>
 
-Or you can run interactively (will prompt for credentials):
+Or store defaults in config (YAML/JSON or flags), then login without args:
+  polaris config set --file ./polaris.yaml
   polaris auth login
 
+Config keys used as fallbacks: root_client_id, root_client_secret, and realm
+(aliases like server_address for host are accepted by config set).
+
 Environment variables are also supported:
-  POLARIS_CLIENT_ID, POLARIS_CLIENT_SECRET, and POLARIS_REALM`,
+  POLARIS_CLIENT_ID, POLARIS_CLIENT_SECRET, POLARIS_ROOT_CLIENT_ID,
+  POLARIS_ROOT_CLIENT_SECRET, and POLARIS_REALM
+
+Credential resolution order: flags → environment → config → interactive prompt.
+
+Or run interactively (will prompt for credentials if nothing else is set):
+  polaris auth login`,
 	RunE: runLogin,
 }
 
