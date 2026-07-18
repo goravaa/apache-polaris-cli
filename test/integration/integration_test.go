@@ -87,26 +87,27 @@ func TestCLIIntegration(t *testing.T) {
 		require.NoError(t, err, "Principal list failed: %s", out)
 		assert.Contains(t, out, principalName)
 
-		// Get
-		out, err = runCLI(t, tmpDir, "principals", "get", principalName)
-		require.NoError(t, err, "Principal get failed: %s", out)
+		// Describe
+		out, err = runCLI(t, tmpDir, "principals", "describe", "--name", principalName)
+		require.NoError(t, err, "Principal describe failed: %s", out)
 		assert.Contains(t, out, principalName)
 
 		// Delete
-		out, err = runCLI(t, tmpDir, "principals", "delete", principalName)
+		out, err = runCLI(t, tmpDir, "principals", "delete", "--name", principalName)
 		require.NoError(t, err, "Principal deletion failed: %s", out)
-		assert.Contains(t, out, "Successfully deleted")
+		assert.Contains(t, out, "Deleted principal")
 
 		// Verify deletion
-		out, err = runCLI(t, tmpDir, "principals", "get", principalName)
+		out, err = runCLI(t, tmpDir, "principals", "describe", "--name", principalName)
 		require.Error(t, err, "Principal should be deleted")
 	})
 
 	t.Run("Test Catalog Lifecycle", func(t *testing.T) {
 		catalogName := fmt.Sprintf("test-catalog-%d", time.Now().UnixNano())
+		baseLocation := fmt.Sprintf("s3://test-bucket/%s/", catalogName)
 
 		// Create
-		out, err := runCLI(t, tmpDir, "catalogs", "create", "--name", catalogName, "--type", "INTERNAL", "--default-base-location", "s3://test-bucket/")
+		out, err := runCLI(t, tmpDir, "catalogs", "create", "--name", catalogName, "--type", "INTERNAL", "--default-base-location", baseLocation)
 		require.NoError(t, err, "Catalog creation failed: %s", out)
 		assert.Contains(t, out, catalogName)
 
@@ -115,18 +116,18 @@ func TestCLIIntegration(t *testing.T) {
 		require.NoError(t, err, "Catalog list failed: %s", out)
 		assert.Contains(t, out, catalogName)
 
-		// Get
-		out, err = runCLI(t, tmpDir, "catalogs", "get", catalogName)
-		require.NoError(t, err, "Catalog get failed: %s", out)
+		// Describe
+		out, err = runCLI(t, tmpDir, "catalogs", "describe", "--name", catalogName)
+		require.NoError(t, err, "Catalog describe failed: %s", out)
 		assert.Contains(t, out, catalogName)
 
 		// Delete
-		out, err = runCLI(t, tmpDir, "catalogs", "delete", catalogName)
+		out, err = runCLI(t, tmpDir, "catalogs", "delete", "--name", catalogName)
 		require.NoError(t, err, "Catalog deletion failed: %s", out)
-		assert.Contains(t, out, "Successfully deleted")
+		assert.Contains(t, out, "Deleted catalog")
 
 		// Verify deletion
-		out, err = runCLI(t, tmpDir, "catalogs", "get", catalogName)
+		out, err = runCLI(t, tmpDir, "catalogs", "describe", "--name", catalogName)
 		require.Error(t, err, "Catalog should be deleted")
 	})
 
@@ -139,12 +140,12 @@ func TestCLIIntegration(t *testing.T) {
 		// Test auth status
 		out, err = runCLI(t, tmpDir, "auth", "status")
 		require.NoError(t, err)
-		assert.Contains(t, out, "Currently authenticated")
+		assert.Contains(t, out, "Status: Authenticated")
 
 		// Test auth refresh
 		out, err = runCLI(t, tmpDir, "auth", "refresh")
 		require.NoError(t, err)
-		assert.Contains(t, out, "Successfully refreshed")
+		assert.Contains(t, out, "Token refreshed successfully")
 
 		// We do not test logout yet because it breaks subsequent tests unless we login again.
 	})
@@ -155,45 +156,47 @@ func TestCLIIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Describe
-		out, err = runCLI(t, tmpDir, "principals", "describe", principalName)
+		out, err = runCLI(t, tmpDir, "principals", "describe", "--name", principalName)
 		require.NoError(t, err)
 		assert.Contains(t, out, principalName)
 
 		// Update (e.g. changing property)
-		out, err = runCLI(t, tmpDir, "principals", "update", principalName, "--property", "newProp=newValue")
+		out, err = runCLI(t, tmpDir, "principals", "update", "--name", principalName, "--property", "newProp=newValue")
 		require.NoError(t, err)
-		assert.Contains(t, out, "Successfully updated")
+		assert.Contains(t, out, "Updated principal")
 
 		// Rotate Credentials
-		out, err = runCLI(t, tmpDir, "principals", "rotate-credentials", principalName)
+		out, err = runCLI(t, tmpDir, "principals", "rotate-credentials", "--name", principalName)
 		require.NoError(t, err)
-		assert.Contains(t, out, "Client ID")
-		assert.Contains(t, out, "Client Secret")
+		assert.Contains(t, out, "clientId")
+		assert.Contains(t, out, "clientSecret")
 
 		// Reset Credentials
-		out, err = runCLI(t, tmpDir, "principals", "reset-credentials", principalName)
+		out, err = runCLI(t, tmpDir, "principals", "reset-credentials", "--name", principalName)
 		require.NoError(t, err)
-		assert.Contains(t, out, "Successfully reset")
+		assert.Contains(t, out, "clientId")
+		assert.Contains(t, out, "clientSecret")
 
 		// Roles (assuming empty but checking command works)
-		out, err = runCLI(t, tmpDir, "principals", "list-roles", principalName)
+		out, err = runCLI(t, tmpDir, "principals", "list-roles", "--name", principalName)
 		require.NoError(t, err)
 		// Should not error, output might just be empty list or headers
 
 		// Delete
-		_, err = runCLI(t, tmpDir, "principals", "delete", principalName)
+		_, err = runCLI(t, tmpDir, "principals", "delete", "--name", principalName)
 		require.NoError(t, err)
 	})
 
 	t.Run("Test Catalog, Namespaces and Tables", func(t *testing.T) {
 		catalogName := fmt.Sprintf("test-ns-catalog-%d", time.Now().UnixNano())
+		baseLocation := fmt.Sprintf("s3://test-bucket/%s/", catalogName)
 
 		// 1. Create Catalog
-		_, err := runCLI(t, tmpDir, "catalogs", "create", "--name", catalogName, "--type", "INTERNAL", "--default-base-location", "s3://test-bucket/")
+		_, err := runCLI(t, tmpDir, "catalogs", "create", "--name", catalogName, "--type", "INTERNAL", "--default-base-location", baseLocation)
 		require.NoError(t, err)
 
 		// Describe
-		out, err := runCLI(t, tmpDir, "catalogs", "describe", catalogName)
+		out, err := runCLI(t, tmpDir, "catalogs", "describe", "--name", catalogName)
 		require.NoError(t, err)
 		assert.Contains(t, out, catalogName)
 
@@ -201,26 +204,26 @@ func TestCLIIntegration(t *testing.T) {
 		namespaceName := "test_namespace"
 
 		// Create Namespace
-		out, err = runCLI(t, tmpDir, "catalog", "namespaces", "create", namespaceName, "--catalog", catalogName)
+		out, err = runCLI(t, tmpDir, "catalog", "namespaces", "create", namespaceName, "--prefix", catalogName)
 		require.NoError(t, err)
 		assert.Contains(t, out, namespaceName)
 
 		// List Namespaces
-		out, err = runCLI(t, tmpDir, "catalog", "namespaces", "list", "--catalog", catalogName)
+		out, err = runCLI(t, tmpDir, "catalog", "namespaces", "list", "--prefix", catalogName)
 		require.NoError(t, err)
 		assert.Contains(t, out, namespaceName)
 
 		// 3. Tables (List only, as create is not yet implemented)
-		out, err = runCLI(t, tmpDir, "catalog", "tables", "list", "--catalog", catalogName, "--namespace", namespaceName)
+		out, err = runCLI(t, tmpDir, "catalog", "tables", "list", "--prefix", catalogName, "--namespace", namespaceName)
 		require.NoError(t, err) // Should succeed, returning empty list
 
 		// 4. Delete Namespace
-		out, err = runCLI(t, tmpDir, "catalog", "namespaces", "delete", namespaceName, "--catalog", catalogName)
+		out, err = runCLI(t, tmpDir, "catalog", "namespaces", "delete", namespaceName, "--prefix", catalogName)
 		require.NoError(t, err)
-		assert.Contains(t, out, "Successfully deleted")
+		assert.Contains(t, out, "Deleted namespace")
 
 		// 5. Delete Catalog
-		_, err = runCLI(t, tmpDir, "catalogs", "delete", catalogName)
+		_, err = runCLI(t, tmpDir, "catalogs", "delete", "--name", catalogName)
 		require.NoError(t, err)
 	})
 
@@ -231,6 +234,6 @@ func TestCLIIntegration(t *testing.T) {
 
 		out, err := runCLI(t, tmpDirFail, "auth", "login", "--client-id", "invalid", "--client-secret", "invalid")
 		require.Error(t, err, "Expected failure with invalid credentials")
-		assert.Contains(t, string(out), "invalid_client")
+		assert.Contains(t, string(out), "authentication failed")
 	})
 }
